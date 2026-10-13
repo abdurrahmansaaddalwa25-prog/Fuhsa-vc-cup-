@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>FUHSA VC Cup • Live Scores</title>
+  <meta name="description" content="Live scores and tournament tracker for Federal University of Health Sciences Azare VC Cup" />
+  <meta name="theme-color" content="#0f766e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FUHSA Cup" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 300: '#5eead4', 400: '#2dd4bf', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e', 800: '#115e59', 900: '#134e4a' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .score-input { width: 3.2rem; text-align: center; }
+    .live-pulse { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .tab-active { border-bottom: 3px solid #0d9488; color: #0d9488; font-weight: 700; }
+    .match-card { transition: all 0.2s ease; }
+    .match-card:hover { transform: translateY(-2px); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen safe-bottom">
+
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-primary-800 to-primary-600 text-white sticky top-0 z-50 shadow-lg">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="bg-white/20 p-2 rounded-xl">
+          <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path fill="#0f766e" d="M12 6a6 6 0 100 12 6 6 0 000-12z"/></svg>
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-bold leading-tight">FUHSA VC Cup</h1>
+          <p class="text-xs text-primary-100 opacity-90">Live Scores & Tournament</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btn-install" class="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm font-medium transition hidden">Install</button>
+        <button id="btn-notify" class="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm font-medium transition" title="Enable notifications">🔔</button>
+        <button id="btn-admin" class="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm font-medium transition">Admin</button>
+        <button id="btn-reset" class="bg-red-500/80 hover:bg-red-600 px-3 py-1.5 rounded-lg text-sm font-medium transition hidden">Reset</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="bg-white border-b border-slate-200 sticky top-[60px] z-40">
+    <div class="max-w-6xl mx-auto px-2 flex overflow-x-auto no-scrollbar">
+      <button data-tab="live" class="tab-btn tab-active px-4 py-3 text-sm whitespace-nowrap">Live</button>
+      <button data-tab="fixtures" class="tab-btn px-4 py-3 text-sm text-slate-600 whitespace-nowrap">Fixtures</button>
+      <button data-tab="standings" class="tab-btn px-4 py-3 text-sm text-slate-600 whitespace-nowrap">Standings</button>
+      <button data-tab="bracket" class="tab-btn px-4 py-3 text-sm text-slate-600 whitespace-nowrap">Bracket</button>
+      <button data-tab="teams" class="tab-btn px-4 py-3 text-sm text-slate-600 whitespace-nowrap">Teams</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 py-5 pb-24">
+
+    <!-- LIVE TAB -->
+    <section id="tab-live" class="tab-content">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold flex items-center gap-2">
+          <span class="w-2.5 h-2.5 bg-red-500 rounded-full live-pulse"></span>
+          Live Matches
+        </h2>
+        <span id="live-count" class="text-sm text-slate-500">0 live</span>
+      </div>
+      <div id="live-matches" class="space-y-3"></div>
+      <div id="no-live" class="text-center py-12 text-slate-400 hidden">
+        <p class="text-lg">No live matches right now</p>
+        <p class="text-sm mt-1">Switch to Fixtures or use Admin to start a match</p>
+      </div>
+    </section>
+
+    <!-- FIXTURES TAB -->
+    <section id="tab-fixtures" class="tab-content hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold">All Fixtures</h2>
+        <select id="filter-stage" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+          <option value="all">All Stages</option>
+          <option value="Group">Group Stage</option>
+          <option value="Round of 16">Round of 16</option>
+          <option value="Quarter-final">Quarter-final</option>
+          <option value="Semi-final">Semi-final</option>
+          <option value="Final">Final</option>
+        </select>
+      </div>
+      <div id="fixtures-list" class="space-y-3"></div>
+    </section>
+
+    <!-- STANDINGS TAB -->
+    <section id="tab-standings" class="tab-content hidden">
+      <h2 class="text-xl font-bold mb-4">Group Standings</h2>
+      <div id="standings-container" class="space-y-6"></div>
+      <div id="no-groups" class="text-center py-12 text-slate-400 hidden">
+        <p>No group stage data yet.</p>
+        <p class="text-sm mt-1">Create group matches in Admin mode.</p>
+      </div>
+    </section>
+
+    <!-- BRACKET TAB -->
+    <section id="tab-bracket" class="tab-content hidden">
+      <h2 class="text-xl font-bold mb-4">Knockout Bracket</h2>
+      <div id="bracket-view" class="overflow-x-auto pb-4"></div>
+      <div id="no-bracket" class="text-center py-12 text-slate-400 hidden">
+        <p>No knockout matches yet.</p>
+      </div>
+    </section>
+
+    <!-- TEAMS TAB -->
+    <section id="tab-teams" class="tab-content hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold">Departments / Teams</h2>
+        <span id="team-count" class="text-sm bg-primary-100 text-primary-800 px-2.5 py-1 rounded-full font-medium">12 teams</span>
+      </div>
+      <div id="teams-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+    </section>
+  </main>
+
+  <!-- PASSWORD MODAL -->
+  <div id="password-modal" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+      <h3 class="text-lg font-bold mb-1">Admin Access</h3>
+      <p class="text-sm text-slate-500 mb-4">Enter password to manage matches & scores</p>
+      <input type="password" id="admin-password" placeholder="Password" class="w-full border border-slate-300 rounded-xl px-4 py-3 text-base mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+      <p id="password-error" class="text-red-500 text-sm mb-3 hidden">Wrong password</p>
+      <div class="flex gap-2">
+        <button id="btn-password-cancel" class="flex-1 border border-slate-300 py-2.5 rounded-xl font-medium">Cancel</button>
+        <button id="btn-password-ok" class="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2.5 rounded-xl font-semibold">Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN PANEL (Modal) -->
+  <div id="admin-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div class="sticky top-0 bg-white border-b px-5 py-4 flex items-center justify-between rounded-t-2xl">
+        <h3 class="text-lg font-bold">Admin Panel</h3>
+        <button id="close-admin" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+      </div>
+      <div class="p-5 space-y-6">
+
+        <div>
+          <h4 class="font-semibold mb-3 text-primary-700">Create / Update Match</h4>
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-medium text-slate-500">Home Team</label>
+                <select id="m-home" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"></select>
+              </div>
+              <div>
+                <label class="text-xs font-medium text-slate-500">Away Team</label>
+                <select id="m-away" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"></select>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="text-xs font-medium text-slate-500">Stage</label>
+                <select id="m-stage" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1">
+                  <option>Group</option>
+                  <option>Round of 16</option>
+                  <option>Quarter-final</option>
+                  <option>Semi-final</option>
+                  <option>Final</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-medium text-slate-500">Group (if any)</label>
+                <select id="m-group" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1">
+                  <option value="">—</option>
+                  <option>A</option>
+                  <option>B</option>
+                  <option>C</option>
+                  <option>D</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-medium text-slate-500">Status</label>
+                <select id="m-status" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1">
+                  <option value="scheduled">Scheduled</option>
+                  <option value="live">Live</option>
+                  <option value="finished">Finished</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-medium text-slate-500">Home Score</label>
+                <input type="number" id="m-home-score" min="0" value="0" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+              </div>
+              <div>
+                <label class="text-xs font-medium text-slate-500">Away Score</label>
+                <input type="number" id="m-away-score" min="0" value="0" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+              </div>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-500">Date / Time (optional)</label>
+              <input type="datetime-local" id="m-datetime" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+            </div>
+            <button id="btn-save-match" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2.5 rounded-xl transition">
+              Save Match
+            </button>
+          </div>
+        </div>
+
+        <div class="border-t pt-5">
+          <h4 class="font-semibold mb-3 text-primary-700">Quick Score Update</h4>
+          <div id="quick-update-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+        </div>
+
+        <div class="border-t pt-5">
+          <h4 class="font-semibold mb-3 text-primary-700">Add New Department</h4>
+          <div class="flex gap-2">
+            <input type="text" id="new-team-name" placeholder="e.g. Medical Laboratory Science" class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+            <button id="btn-add-team" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium">Add</button>
+          </div>
+        </div>
+
+        <div class="border-t pt-5">
+          <h4 class="font-semibold mb-2 text-primary-700">Quick Setup</h4>
+          <p class="text-xs text-slate-500 mb-3">Generate a sample tournament structure (you can edit later)</p>
+          <div class="flex flex-wrap gap-2">
+            <button id="btn-sample-groups" class="bg-amber-100 hover:bg-amber-200 text-amber-900 px-3 py-1.5 rounded-lg text-sm font-medium">12 teams • Groups</button>
+            <button id="btn-sample-knockout" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 px-3 py-1.5 rounded-lg text-sm font-medium">16 teams • Knockout</button>
+          </div>
+        </div>
+
+        <div class="border-t pt-5">
+          <h4 class="font-semibold mb-2 text-primary-700">Notifications</h4>
+          <p class="text-xs text-slate-500 mb-2">When you update a score or set a match Live, a notification is sent to this device (if allowed).</p>
+          <button id="btn-test-notify" class="bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-1.5 rounded-lg text-sm font-medium">Test Notification</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Install banner (bottom) -->
+  <div id="install-banner" class="fixed bottom-0 left-0 right-0 bg-primary-800 text-white p-4 shadow-2xl z-40 hidden safe-bottom">
+    <div class="max-w-6xl mx-auto flex items-center justify-between gap-3">
+      <div>
+        <p class="font-semibold text-sm">Install FUHSA VC Cup</p>
+        <p class="text-xs text-primary-100">Add to home screen for quick access & notifications</p>
+      </div>
+      <div class="flex gap-2">
+        <button id="btn-install-dismiss" class="text-primary-200 text-sm px-2">Later</button>
+        <button id="btn-install-now" class="bg-white text-primary-800 font-semibold px-4 py-2 rounded-lg text-sm">Install</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium opacity-0 transition-opacity duration-300 z-50 pointer-events-none"></div>
+
+  <script>
+    // ===================== CONFIG =====================
+    const ADMIN_PASSWORD = 'fuhsa2026';   // ← Change this password if you want
+    const DEFAULT_TEAMS = [
+      "Radiography", "Nursing", "MBBS", "Dentistry", "I.H",
+      "Physiotherapy", "Optometry", "Nutrition", "Biostatistics",
+      "Audiology", "Pharmacology", "Environmental Health"
+    ];
+    const EXTRA_TEAMS = [
+      "Medical Laboratory Science", "Public Health", "Health Information Management", "Anatomy"
+    ];
+
+    let state = {
+      teams: [...DEFAULT_TEAMS],
+      matches: [],
+      isAdmin: false
+    };
+
+    let deferredPrompt = null;
+    let notifPermission = Notification.permission;
+
+    // ===================== STORAGE =====================
+    function loadState() {
+      try {
+        const saved = localStorage.getItem('fuhsa_vc_cup_v1');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          state.teams = parsed.teams || DEFAULT_TEAMS;
+          state.matches = parsed.matches || [];
+        }
+      } catch (e) { console.warn(e); }
+    }
+
+    function saveState() {
+      localStorage.setItem('fuhsa_vc_cup_v1', JSON.stringify({
+        teams: state.teams,
+        matches: state.matches
+      }));
+    }
+
+    // ===================== PWA & NOTIFICATIONS =====================
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW registered', reg.scope))
+          .catch(err => console.warn('SW failed', err));
+      });
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('btn-install').classList.remove('hidden');
+      // show banner after a short delay if not previously dismissed
+      if (!localStorage.getItem('install_dismissed')) {
+        setTimeout(() => document.getElementById('install-banner').classList.remove('hidden'), 2500);
+      }
+    });
+
+    document.getElementById('btn-install').addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      document.getElementById('btn-install').classList.add('hidden');
+      document.getElementById('install-banner').classList.add('hidden');
+      toast(outcome === 'accepted' ? 'App installed!' : 'Install cancelled');
+    });
+
+    document.getElementById('btn-install-now').addEventListener('click', () => {
+      document.getElementById('btn-install').click();
+    });
+    document.getElementById('btn-install-dismiss').addEventListener('click', () => {
+      document.getElementById('install-banner').classList.add('hidden');
+      localStorage.setItem('install_dismissed', '1');
+    });
+
+    async function requestNotificationPermission() {
+      if (!('Notification' in window)) {
+        toast('Notifications not supported on this device');
+        return false;
+      }
+      if (Notification.permission === 'granted') {
+        notifPermission = 'granted';
+        toast('Notifications already enabled');
+        return true;
+      }
+      if (Notification.permission === 'denied') {
+        toast('Notifications blocked. Enable them in browser settings.');
+        return false;
+      }
+      const perm = await Notification.requestPermission();
+      notifPermission = perm;
+      if (perm === 'granted') {
+        toast('Notifications enabled! You will get alerts for live scores.');
+        showLocalNotification('FUHSA VC Cup', 'Notifications are now active on this device.');
+        return true;
+      }
+      toast('Notification permission denied');
+      return false;
+    }
+
+    function showLocalNotification(title, body, tag = 'fuhsa-score') {
+      if (notifPermission !== 'granted') return;
+
+      // Prefer service worker notification (works better when app is in background)
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_NOTIFICATION',
+          title,
+          body,
+          tag
+        });
+      } else if ('Notification' in window) {
+        new Notification(title, {
+          body,
+          icon: './icon-192.png',
+          badge: './icon-192.png',
+          tag,
+          renotify: true,
+          vibrate: [200, 100, 200]
+        });
+      }
+    }
+
+    document.getElementById('btn-notify').addEventListener('click', requestNotificationPermission);
+    document.getElementById('btn-test-notify')?.addEventListener('click', () => {
+      if (notifPermission !== 'granted') {
+        requestNotificationPermission().then(ok => {
+          if (ok) showLocalNotification('Test', 'This is how live score alerts will look.');
+        });
+      } else {
+        showLocalNotification('Test', 'This is how live score alerts will look.');
+      }
+    });
+
+    // ===================== HELPERS =====================
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.remove('opacity-0');
+      setTimeout(() => t.classList.add('opacity-0'), 2200);
+    }
+
+    function uid() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+
+    function getTeamShort(name) {
+      if (name.length <= 12) return name;
+      return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 6) || name.slice(0, 10);
+    }
+
+    // ===================== RENDER =====================
+    function renderAll() {
+      renderLive();
+      renderFixtures();
+      renderStandings();
+      renderBracket();
+      renderTeams();
+      populateTeamSelects();
+      renderQuickUpdate();
+      document.getElementById('team-count').textContent = state.teams.length + ' teams';
+      document.getElementById('btn-reset').classList.toggle('hidden', !state.isAdmin);
+    }
+
+    function renderLive() {
+      const live = state.matches.filter(m => m.status === 'live');
+      const container = document.getElementById('live-matches');
+      const noLive = document.getElementById('no-live');
+      document.getElementById('live-count').textContent = live.length + ' live';
+
+      if (live.length === 0) {
+        container.innerHTML = '';
+        noLive.classList.remove('hidden');
+        return;
+      }
+      noLive.classList.add('hidden');
+      container.innerHTML = live.map(m => matchCard(m, true)).join('');
+    }
+
+    function renderFixtures() {
+      const filter = document.getElementById('filter-stage').value;
+      let list = [...state.matches];
+      if (filter !== 'all') list = list.filter(m => m.stage === filter);
+
+      list.sort((a, b) => {
+        const order = { live: 0, scheduled: 1, finished: 2 };
+        if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
+        return (a.datetime || '').localeCompare(b.datetime || '');
+      });
+
+      const container = document.getElementById('fixtures-list');
+      if (list.length === 0) {
+        container.innerHTML = '<p class="text-center text-slate-400 py-10">No fixtures yet. Use Admin to add matches.</p>';
+        return;
+      }
+      container.innerHTML = list.map(m => matchCard(m)).join('');
+    }
+
+    function matchCard(m) {
+      const statusBadge = {
+        live: '<span class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold live-pulse">LIVE</span>',
+        scheduled: '<span class="bg-slate-200 text-slate-600 text-xs px-2 py-0.5 rounded-full">Upcoming</span>',
+        finished: '<span class="bg-primary-100 text-primary-800 text-xs px-2 py-0.5 rounded-full">FT</span>'
+      }[m.status];
+
+      const scoreHtml = m.status === 'scheduled'
+        ? '<span class="text-slate-400 text-sm font-medium">vs</span>'
+        : `<span class="text-2xl font-bold tabular-nums">${m.homeScore} – ${m.awayScore}</span>`;
+
+      const timeStr = m.datetime
+        ? new Date(m.datetime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : '';
+
+      return `
+        <div class="match-card bg-white rounded-xl shadow-sm border border-slate-100 p-4" data-id="${m.id}">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              ${statusBadge}
+              <span class="text-xs text-slate-500 font-medium">${m.stage}${m.group ? ' • Group ' + m.group : ''}</span>
+            </div>
+            <span class="text-xs text-slate-400">${timeStr}</span>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex-1 text-right">
+              <p class="font-semibold text-sm sm:text-base truncate">${m.home}</p>
+            </div>
+            <div class="flex-shrink-0 px-2">${scoreHtml}</div>
+            <div class="flex-1 text-left">
+              <p class="font-semibold text-sm sm:text-base truncate">${m.away}</p>
+            </div>
+          </div>
+          ${state.isAdmin ? `
+            <div class="mt-3 pt-3 border-t border-slate-100 flex gap-2">
+              <button onclick="setLive('${m.id}')" class="text-xs bg-red-50 text-red-700 px-2.5 py-1 rounded-lg font-medium">Set Live</button>
+              <button onclick="editMatch('${m.id}')" class="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-medium">Edit</button>
+              <button onclick="deleteMatch('${m.id}')" class="text-xs bg-red-50 text-red-600 px-2.5 py-1 rounded-lg font-medium ml-auto">Delete</button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function renderStandings() {
+      const groups = {};
+      state.matches.filter(m => m.stage === 'Group' && m.group).forEach(m => {
+        if (!groups[m.group]) groups[m.group] = [];
+        groups[m.group].push(m);
+      });
+
+      const container = document.getElementById('standings-container');
+      const noGroups = document.getElementById('no-groups');
+
+      if (Object.keys(groups).length === 0) {
+        container.innerHTML = '';
+        noGroups.classList.remove('hidden');
+        return;
+      }
+      noGroups.classList.add('hidden');
+
+      let html = '';
+      Object.keys(groups).sort().forEach(g => {
+        const table = computeTable(groups[g]);
+        html += `
+          <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="bg-primary-700 text-white px-4 py-2.5 font-semibold">Group ${g}</div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+                  <tr>
+                    <th class="text-left px-3 py-2">#</th>
+                    <th class="text-left px-3 py-2">Team</th>
+                    <th class="text-center px-2 py-2">P</th>
+                    <th class="text-center px-2 py-2">W</th>
+                    <th class="text-center px-2 py-2">D</th>
+                    <th class="text-center px-2 py-2">L</th>
+                    <th class="text-center px-2 py-2">GF</th>
+                    <th class="text-center px-2 py-2">GA</th>
+                    <th class="text-center px-2 py-2">GD</th>
+                    <th class="text-center px-3 py-2 font-bold">Pts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${table.map((row, i) => `
+                    <tr class="border-t border-slate-100 ${i < 2 ? 'bg-primary-50/50' : ''}">
+                      <td class="px-3 py-2.5 font-medium">${i + 1}</td>
+                      <td class="px-3 py-2.5 font-semibold">${row.team}</td>
+                      <td class="text-center px-2 py-2.5">${row.p}</td>
+                      <td class="text-center px-2 py-2.5">${row.w}</td>
+                      <td class="text-center px-2 py-2.5">${row.d}</td>
+                      <td class="text-center px-2 py-2.5">${row.l}</td>
+                      <td class="text-center px-2 py-2.5">${row.gf}</td>
+                      <td class="text-center px-2 py-2.5">${row.ga}</td>
+                      <td class="text-center px-2 py-2.5">${row.gd > 0 ? '+' : ''}${row.gd}</td>
+                      <td class="text-center px-3 py-2.5 font-bold text-primary-700">${row.pts}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function computeTable(matches) {
+      const stats = {};
+      matches.forEach(m => {
+        [m.home, m.away].forEach(t => {
+          if (!stats[t]) stats[t] = { team: t, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
+        });
+        if (m.status !== 'finished' && m.status !== 'live') return;
+        const hs = Number(m.homeScore) || 0;
+        const as = Number(m.awayScore) || 0;
+        stats[m.home].p++; stats[m.away].p++;
+        stats[m.home].gf += hs; stats[m.home].ga += as;
+        stats[m.away].gf += as; stats[m.away].ga += hs;
+        if (hs > as) {
+          stats[m.home].w++; stats[m.home].pts += 3;
+          stats[m.away].l++;
+        } else if (as > hs) {
+          stats[m.away].w++; stats[m.away].pts += 3;
+          stats[m.home].l++;
+        } else {
+          stats[m.home].d++; stats[m.away].d++;
+          stats[m.home].pts++; stats[m.away].pts++;
+        }
+        stats[m.home].gd = stats[m.home].gf - stats[m.home].ga;
+        stats[m.away].gd = stats[m.away].gf - stats[m.away].ga;
+      });
+      return Object.values(stats).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+    }
+
+    function renderBracket() {
+      const stages = ['Round of 16', 'Quarter-final', 'Semi-final', 'Final'];
+      const knockout = state.matches.filter(m => stages.includes(m.stage));
+      const container = document.getElementById('bracket-view');
+      const noBracket = document.getElementById('no-bracket');
+
+      if (knockout.length === 0) {
+        container.innerHTML = '';
+        noBracket.classList.remove('hidden');
+        return;
+      }
+      noBracket.classList.add('hidden');
+
+      let html = '<div class="flex gap-6 min-w-max">';
+      stages.forEach(stage => {
+        const matches = knockout.filter(m => m.stage === stage);
+        if (matches.length === 0) return;
+        html += `
+          <div class="flex flex-col gap-4 min-w-[200px]">
+            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wide text-center">${stage}</h3>
+            ${matches.map(m => `
+              <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+                <div class="flex justify-between items-center text-sm ${m.status === 'finished' && m.homeScore > m.awayScore ? 'font-bold text-primary-700' : ''}">
+                  <span class="truncate max-w-[110px]">${m.home}</span>
+                  <span class="font-bold tabular-nums">${m.status === 'scheduled' ? '-' : m.homeScore}</span>
+                </div>
+                <div class="flex justify-between items-center text-sm mt-1 ${m.status === 'finished' && m.awayScore > m.homeScore ? 'font-bold text-primary-700' : ''}">
+                  <span class="truncate max-w-[110px]">${m.away}</span>
+                  <span class="font-bold tabular-nums">${m.status === 'scheduled' ? '-' : m.awayScore}</span>
+                </div>
+                ${m.status === 'live' ? '<div class="mt-1 text-center"><span class="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded live-pulse">LIVE</span></div>' : ''}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function renderTeams() {
+      const grid = document.getElementById('teams-grid');
+      grid.innerHTML = state.teams.map((t, i) => `
+        <div class="bg-white rounded-xl border border-slate-100 p-4 flex items-center gap-3 shadow-sm">
+          <div class="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-sm">
+            ${i + 1}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold truncate">${t}</p>
+            <p class="text-xs text-slate-400">Department</p>
+          </div>
+          ${state.isAdmin ? `<button onclick="removeTeam('${t}')" class="text-red-400 hover:text-red-600 text-sm">✕</button>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function populateTeamSelects() {
+      const opts = state.teams.map(t => `<option value="${t}">${t}</option>`).join('');
+      document.getElementById('m-home').innerHTML = opts;
+      document.getElementById('m-away').innerHTML = opts;
+    }
+
+    function renderQuickUpdate() {
+      const list = document.getElementById('quick-update-list');
+      const updatable = state.matches.filter(m => m.status === 'live' || m.status === 'scheduled');
+      if (updatable.length === 0) {
+        list.innerHTML = '<p class="text-sm text-slate-400">No matches to update</p>';
+        return;
+      }
+      list.innerHTML = updatable.map(m => `
+        <div class="flex items-center gap-2 bg-slate-50 rounded-lg p-2 text-sm">
+          <span class="flex-1 truncate font-medium">${getTeamShort(m.home)} vs ${getTeamShort(m.away)}</span>
+          <input type="number" min="0" value="${m.homeScore}" class="score-input border rounded px-1 py-0.5" data-id="${m.id}" data-side="home" />
+          <span>–</span>
+          <input type="number" min="0" value="${m.awayScore}" class="score-input border rounded px-1 py-0.5" data-id="${m.id}" data-side="away" />
+          <button onclick="quickSave('${m.id}')" class="bg-primary-600 text-white text-xs px-2 py-1 rounded">Save</button>
+        </div>
+      `).join('');
+    }
+
+    // ===================== ACTIONS =====================
+    function saveMatch() {
+      const home = document.getElementById('m-home').value;
+      const away = document.getElementById('m-away').value;
+      if (home === away) { toast('Home and Away cannot be the same'); return; }
+
+      const oldMatch = window._editId ? state.matches.find(m => m.id === window._editId) : null;
+      const newStatus = document.getElementById('m-status').value;
+      const newHomeScore = Number(document.getElementById('m-home-score').value) || 0;
+      const newAwayScore = Number(document.getElementById('m-away-score').value) || 0;
+
+      const match = {
+        id: window._editId || uid(),
+        home,
+        away,
+        homeScore: newHomeScore,
+        awayScore: newAwayScore,
+        stage: document.getElementById('m-stage').value,
+        group: document.getElementById('m-group').value || null,
+        status: newStatus,
+        datetime: document.getElementById('m-datetime').value || null
+      };
+
+      if (window._editId) {
+        const idx = state.matches.findIndex(m => m.id === window._editId);
+        if (idx >= 0) state.matches[idx] = match;
+        window._editId = null;
+        toast('Match updated');
+      } else {
+        state.matches.push(match);
+        toast('Match created');
+      }
+      saveState();
+      renderAll();
+
+      // Notifications
+      if (newStatus === 'live' && (!oldMatch || oldMatch.status !== 'live')) {
+        showLocalNotification('🔴 LIVE', `${home} vs ${away} is now LIVE`);
+      }
+      if (oldMatch && (oldMatch.homeScore !== newHomeScore || oldMatch.awayScore !== newAwayScore) && newStatus !== 'scheduled') {
+        showLocalNotification('⚽ Goal!', `${home} ${newHomeScore} – ${newAwayScore} ${away}`);
+      }
+
+      document.getElementById('m-home-score').value = 0;
+      document.getElementById('m-away-score').value = 0;
+      document.getElementById('m-status').value = 'scheduled';
+    }
+
+    function editMatch(id) {
+      const m = state.matches.find(x => x.id === id);
+      if (!m) return;
+      window._editId = id;
+      document.getElementById('m-home').value = m.home;
+      document.getElementById('m-away').value = m.away;
+      document.getElementById('m-home-score').value = m.homeScore;
+      document.getElementById('m-away-score').value = m.awayScore;
+      document.getElementById('m-stage').value = m.stage;
+      document.getElementById('m-group').value = m.group || '';
+      document.getElementById('m-status').value = m.status;
+      document.getElementById('m-datetime').value = m.datetime || '';
+      document.getElementById('admin-modal').classList.remove('hidden');
+      toast('Editing match – change values and Save');
+    }
+
+    function deleteMatch(id) {
+      if (!confirm('Delete this match?')) return;
+      state.matches = state.matches.filter(m => m.id !== id);
+      saveState();
+      renderAll();
+      toast('Match deleted');
+    }
+
+    function setLive(id) {
+      const m = state.matches.find(x => x.id === id);
+      if (m) {
+        m.status = 'live';
+        saveState();
+        renderAll();
+        toast(m.home + ' vs ' + m.away + ' is now LIVE');
+        showLocalNotification('🔴 LIVE', `${m.home} vs ${m.away} is now LIVE`);
+      }
+    }
+
+    function quickSave(id) {
+      const inputs = document.querySelectorAll(`input[data-id="${id}"]`);
+      const m = state.matches.find(x => x.id === id);
+      if (!m) return;
+      const oldHome = m.homeScore, oldAway = m.awayScore;
+      inputs.forEach(inp => {
+        if (inp.dataset.side === 'home') m.homeScore = Number(inp.value) || 0;
+        if (inp.dataset.side === 'away') m.awayScore = Number(inp.value) || 0;
+      });
+      if (m.status === 'scheduled') m.status = 'live';
+      saveState();
+      renderAll();
+      toast('Score updated');
+      if (m.homeScore !== oldHome || m.awayScore !== oldAway) {
+        showLocalNotification('⚽ Goal!', `${m.home} ${m.homeScore} – ${m.awayScore} ${m.away}`);
+      }
+    }
+
+    function addTeam() {
+      const name = document.getElementById('new-team-name').value.trim();
+      if (!name) return;
+      if (state.teams.includes(name)) { toast('Team already exists'); return; }
+      if (state.teams.length >= 16) { toast('Maximum 16 teams reached'); return; }
+      state.teams.push(name);
+      document.getElementById('new-team-name').value = '';
+      saveState();
+      renderAll();
+      toast(name + ' added');
+    }
+
+    function removeTeam(name) {
+      if (!confirm('Remove ' + name + '? Matches involving this team will stay.')) return;
+      state.teams = state.teams.filter(t => t !== name);
+      saveState();
+      renderAll();
+      toast(name + ' removed');
+    }
+
+    function generateGroups() {
+      if (!confirm('This will clear existing matches and create a sample 12-team group stage. Continue?')) return;
+      state.matches = [];
+      const groups = [
+        state.teams.slice(0, 4),
+        state.teams.slice(4, 8),
+        state.teams.slice(8, 12)
+      ];
+      const labels = ['A', 'B', 'C'];
+      groups.forEach((g, gi) => {
+        for (let i = 0; i < g.length; i++) {
+          for (let j = i + 1; j < g.length; j++) {
+            state.matches.push({
+              id: uid(),
+              home: g[i],
+              away: g[j],
+              homeScore: 0,
+              awayScore: 0,
+              stage: 'Group',
+              group: labels[gi],
+              status: 'scheduled',
+              datetime: null
+            });
+          }
+        }
+      });
+      saveState();
+      renderAll();
+      toast('Group stage created (3 groups of 4)');
+    }
+
+    function generateKnockout() {
+      if (!confirm('This will clear existing matches and create a sample 16-team knockout. Extra teams will be added. Continue?')) return;
+      while (state.teams.length < 16) {
+        const next = EXTRA_TEAMS[state.teams.length - 12] || ('Team ' + (state.teams.length + 1));
+        if (!state.teams.includes(next)) state.teams.push(next);
+        else break;
+      }
+      state.matches = [];
+      for (let i = 0; i < 8; i++) {
+        state.matches.push({
+          id: uid(),
+          home: state.teams[i * 2],
+          away: state.teams[i * 2 + 1],
+          homeScore: 0,
+          awayScore: 0,
+          stage: 'Round of 16',
+          group: null,
+          status: 'scheduled',
+          datetime: null
+        });
+      }
+      ['Quarter-final', 'Semi-final', 'Final'].forEach((stage, si) => {
+        const count = [4, 2, 1][si];
+        for (let i = 0; i < count; i++) {
+          state.matches.push({
+            id: uid(),
+            home: 'TBD',
+            away: 'TBD',
+            homeScore: 0,
+            awayScore: 0,
+            stage,
+            group: null,
+            status: 'scheduled',
+            datetime: null
+          });
+        }
+      });
+      saveState();
+      renderAll();
+      toast('16-team knockout bracket created');
+    }
+
+    // ===================== UI EVENTS =====================
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          b.classList.remove('tab-active');
+          b.classList.add('text-slate-600');
+        });
+        btn.classList.add('tab-active');
+        btn.classList.remove('text-slate-600');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+      });
+    });
+
+    document.getElementById('filter-stage').addEventListener('change', renderFixtures);
+
+    // Admin with password
+    document.getElementById('btn-admin').addEventListener('click', () => {
+      if (state.isAdmin) {
+        // lock again
+        state.isAdmin = false;
+        document.getElementById('btn-admin').textContent = 'Admin';
+        document.getElementById('admin-modal').classList.add('hidden');
+        renderAll();
+        toast('Admin locked');
+        return;
+      }
+      // show password modal
+      document.getElementById('password-modal').classList.remove('hidden');
+      document.getElementById('admin-password').value = '';
+      document.getElementById('password-error').classList.add('hidden');
+      setTimeout(() => document.getElementById('admin-password').focus(), 100);
+    });
+
+    document.getElementById('btn-password-ok').addEventListener('click', () => {
+      const pw = document.getElementById('admin-password').value;
+      if (pw === ADMIN_PASSWORD) {
+        state.isAdmin = true;
+        document.getElementById('btn-admin').textContent = 'Exit Admin';
+        document.getElementById('password-modal').classList.add('hidden');
+        document.getElementById('admin-modal').classList.remove('hidden');
+        renderAll();
+        toast('Admin unlocked');
+      } else {
+        document.getElementById('password-error').classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('admin-password').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('btn-password-ok').click();
+    });
+
+    document.getElementById('btn-password-cancel').addEventListener('click', () => {
+      document.getElementById('password-modal').classList.add('hidden');
+    });
+
+    document.getElementById('close-admin').addEventListener('click', () => {
+      document.getElementById('admin-modal').classList.add('hidden');
+      window._editId = null;
+    });
+
+    document.getElementById('btn-save-match').addEventListener('click', saveMatch);
+    document.getElementById('btn-add-team').addEventListener('click', addTeam);
+    document.getElementById('btn-sample-groups').addEventListener('click', generateGroups);
+    document.getElementById('btn-sample-knockout').addEventListener('click', generateKnockout);
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      if (!confirm('Reset ALL data? This cannot be undone.')) return;
+      state.teams = [...DEFAULT_TEAMS];
+      state.matches = [];
+      saveState();
+      renderAll();
+      toast('Everything reset');
+    });
+
+    document.getElementById('admin-modal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('admin-modal')) {
+        document.getElementById('admin-modal').classList.add('hidden');
+      }
+    });
+    document.getElementById('password-modal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('password-modal')) {
+        document.getElementById('password-modal').classList.add('hidden');
+      }
+    });
+
+    // ===================== INIT =====================
+    loadState();
+    renderAll();
+
+    // Expose some functions for inline onclick
+    window.setLive = setLive;
+    window.editMatch = editMatch;
+    window.deleteMatch = deleteMatch;
+    window.quickSave = quickSave;
+    window.removeTeam = removeTeam;
+  </script>
+</body>
+</html>
